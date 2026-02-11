@@ -83,6 +83,8 @@ FLASH_Status_t Flash_Write(uint32_t address, uint8_t *data, uint32_t length)
 }
 
 
+
+
 /* ================= READ FLASH ================= */
 FLASH_Status_t Flash_Read(uint32_t address, uint8_t *data, uint32_t length)
 {

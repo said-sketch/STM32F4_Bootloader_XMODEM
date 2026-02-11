@@ -9,6 +9,7 @@
 #include "boot_jump.h"
 #include "stm32f4xx_hal.h"
 
+typedef void (*pFunction)(void);
 
 typedef void(*pFunction)(void);
 
@@ -22,6 +23,7 @@ void Boot_JumpToApplication(uint32_t app_address)
     SysTick->LOAD = 0;
     SysTick->VAL  = 0;
 
+    //__set_MSP(app_stack);
     SCB->VTOR = app_address;
 
     __DSB();

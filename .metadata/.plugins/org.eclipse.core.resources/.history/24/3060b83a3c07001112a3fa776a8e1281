@@ -50,13 +50,8 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 static uint8_t IFLASH_Write_Buffer[16];
 static uint8_t IFLASH_Read_Buffer[16];
-static uint8_t UART_Tx_Buffer[] = "UART TEST OK\r\n";
+static uint8_t UART_Tx_Buffer[] = "UART SEND TEST OK\r\n";
 static uint8_t Serial_CMD = 0;
-const char bootMenu[] =
-"\r\n========================\r\n"
-"[J] Jump to Application\r\n"
-"[U] Update Firmware\r\n"
-"========================\r\n";
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -102,10 +97,16 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-  // ================= UART TEST =================
-  #if UART_Test
-  UART_SendBuffer(UART_Tx_Buffer, sizeof(UART_Tx_Buffer) - 1);
-  #endif
+  /* ================= UART TEST SEND ================= */
+	#if UART_Test
+  	  UART_SendBuffer(UART_Tx_Buffer, sizeof(UART_Tx_Buffer) - 1);
+	#endif
+
+  // ================= UART TEST RECEIVE=================
+	#if UART_Test
+  	  UART_SendBuffer(UART_Tx_Buffer, sizeof(UART_Tx_Buffer) - 1);
+	#endif
+
   // ================= FLASH TEST =================
   #if IFLASH_Test
   	  for (int i = 0; i < 16; i++)
@@ -118,9 +119,16 @@ int main(void)
   #endif
 
   // ================= BOOT MENU =================
+  const char bootMenu[] =
+  "\r\n========================\r\n"
+  "[J] Jump to Application\r\n"
+  "[U] Update Firmware\r\n"
+  "========================\r\n";
+
   UART_SendBuffer((uint8_t*)bootMenu, strlen(bootMenu));
 
   // ================= WAIT FOR USER INPUT =================
+  Serial_CMD = 0;
 
   /* USER CODE END 2 */
 

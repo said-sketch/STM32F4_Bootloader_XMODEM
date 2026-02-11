@@ -50,7 +50,7 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 static uint8_t IFLASH_Write_Buffer[16];
 static uint8_t IFLASH_Read_Buffer[16];
-static uint8_t UART_Tx_Buffer[] = "UART TEST OK\r\n";
+uint8_t rx_char;
 static uint8_t Serial_CMD = 0;
 const char bootMenu[] =
 "\r\n========================\r\n"
@@ -102,10 +102,21 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-  // ================= UART TEST =================
-  #if UART_Test
-  UART_SendBuffer(UART_Tx_Buffer, sizeof(UART_Tx_Buffer) - 1);
-  #endif
+  /* ================= UART TEST ================= */
+	#if UART_Test
+
+  	  UART_SendBuffer((uint8_t*)"Echo Test Active\r\n", 18);
+
+  	  while (1)
+  	  {
+  		  if (UART_ReceiveBuffer(&rx_char, 1, HAL_MAX_DELAY) == HAL_OK)
+  		  {
+  			  UART_SendBuffer(&rx_char, 1);
+  		  }
+  	  }
+
+	#endif
+
   // ================= FLASH TEST =================
   #if IFLASH_Test
   	  for (int i = 0; i < 16; i++)
