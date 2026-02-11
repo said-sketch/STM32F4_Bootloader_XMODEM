@@ -1,0 +1,51 @@
+/*
+ * uart_if.c
+ *
+ *  Created on: Feb 9, 2026
+ *      Author: HP
+ */
+
+#include "uart_if.h"
+
+/* ================= SEND SINGLE BYTE ================= */
+UART_Status_t UART_SendByte(uint8_t byte)
+{
+    if (HAL_UART_Transmit(&huart2, &byte, 1, HAL_MAX_DELAY) == HAL_OK)
+        return UART_OK;
+
+    return UART_ERROR;
+}
+
+/* ================= SEND BUFFER ================= */
+UART_Status_t UART_SendBuffer(uint8_t *buf, uint16_t len)
+{
+    if (!buf) return UART_ERROR;
+
+    if (HAL_UART_Transmit(&huart2, buf, len, HAL_MAX_DELAY) == HAL_OK)
+        return UART_OK;
+
+    return UART_ERROR;
+}
+
+/* ================= RECEIVE SINGLE BYTE ================= */
+UART_Status_t UART_ReceiveByte(uint8_t *byte, uint32_t timeout)
+{
+    if (!byte) return UART_ERROR;
+
+    if (HAL_UART_Receive(&huart2, byte, 1, timeout) == HAL_OK)
+        return UART_OK;
+
+    return UART_TIMEOUT;
+}
+
+/* ================= RECEIVE BUFFER ================= */
+UART_Status_t UART_ReceiveBuffer(uint8_t *buf, uint16_t len, uint32_t timeout)
+{
+    if (!buf) return UART_ERROR;
+
+    if (HAL_UART_Receive(&huart2, buf, len, timeout) == HAL_OK)
+        return UART_OK;
+
+    return UART_TIMEOUT;
+}
+

@@ -1,0 +1,46 @@
+/*
+ * xmodem.h
+ *
+ *  Created on: Feb 9, 2026
+ *      Author: HP
+ */
+
+#ifndef _XMODEM_H_
+#define _XMODEM_H_
+
+/* ================= CONTROL BYTES ================= */
+#define XMODEM_SOH              0x01  // 128-byte block
+#define XMODEM_STX              0x02  // 1024-byte block
+#define XMODEM_EOT              0x04
+#define XMODEM_ACK              0x06
+#define XMODEM_NAK              0x15
+#define XMODEM_CAN              0x18
+
+
+/* ================= CONFIG ================= */
+#define XMODEM_DATA_SIZE        1024U
+#define XMODEM_START_BYTE       0x02    // STX for 1K
+#define XMODEM_MAX_RETRY        10
+#define packet_number_size  2
+
+/* ================= STATUS ================= */
+typedef enum
+{
+    XMODEM_OK = 0,
+    XMODEM_ERROR,
+	 XMODEM_FLASH_ERROR,
+    XMODEM_TIMEOUT,
+	XMODEM_PACKET_NUM_ERROR
+} XMODEM_Status_t;
+
+
+typedef struct {
+	uint8_t header;
+	 uint8_t data[packet_number_size];
+	uint16_t checksum;
+
+}XMODEM_Frame_t;
+
+
+
+#endif /* _XMODEM_H_ */

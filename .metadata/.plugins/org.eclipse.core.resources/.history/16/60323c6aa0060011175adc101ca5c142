@@ -1,0 +1,24 @@
+/*
+ * BL_config.h
+ *
+ *  Created on: Feb 10, 2026
+ *      Author: HP
+ */
+
+#ifndef INC_BL_CONFIG_H_
+#define INC_BL_CONFIG_H_
+
+/* ================= TEST ENABLE MACROS ================= */
+#define UART_Test     1
+#define IFLASH_Test   1
+#define XMODEM_Test   1
+/* ================= APPLICATION FLASH ADDRESS ================= */
+
+#define APP_FLASH_ADDRESS 0x08020000
+#define APP_MAX_SIZE      0x00010000 // 64KB
+
+/* ================= BOOT SETTINGS ================= */
+#define BOOT_MENU_TIMEOUT_MS  3000
+
+
+#endif /* INC_BL_CONFIG_H_ */

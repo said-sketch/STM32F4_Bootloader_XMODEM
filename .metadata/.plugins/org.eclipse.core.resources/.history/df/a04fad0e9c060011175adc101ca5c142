@@ -1,0 +1,147 @@
+/*
+ * xmodem.c
+ *
+ *  Created on: Feb 9, 2026
+ *      Author: HP
+ */
+
+
+#include "xmodem.h"
+#include "uart_if.h"
+#include "flash_if.h"
+
+/* ================= LOCAL BUFFER ================= */
+static uint8_t xmodem_data_buf[XMODEM_PACKET_1K];
+
+/* ================= CRC16 (XMODEM STANDARD) ================= */
+static uint16_t XMODEM_CalcCRC16(const uint8_t *data, uint16_t length)
+{
+    uint16_t crc = 0x0000;
+
+    for (uint16_t i = 0; i < length; i++)
+    {
+        crc ^= (uint16_t)data[i] << 8;
+        for (uint8_t j = 0; j < 8; j++)
+        {
+            if (crc & 0x8000)
+                crc = (crc << 1) ^ 0x1021;
+            else
+                crc <<= 1;
+        }
+    }
+    return crc;
+}
+
+/* ================= RECEIVE ONE XMODEM PACKET ================= */
+static XMODEM_Status_t XMODEM_ReceivePacket(uint8_t *packet_no, uint16_t *packet_size)
+{
+    uint8_t header;
+    uint8_t pkt_no, pkt_no_inv;
+    uint8_t crc_buf[2];
+
+    /* Receive header */
+    if (UART_ReceiveByte(&header, XMODEM_BYTE_TIMEOUT) != UART_OK)
+        return XMODEM_TIMEOUT_ERROR;
+
+    /* End of transmission */
+    if (header == EOT)
+        return XMODEM_EOT_RECEIVED;
+
+    /* Packet type */
+    if (header == SOH) *packet_size = XMODEM_PACKET_128;
+    else if (header == STX) *packet_size = XMODEM_PACKET_1K;
+    else return XMODEM_UART_ERROR;
+
+    /* Packet number */
+    if (UART_ReceiveByte(&pkt_no, XMODEM_BYTE_TIMEOUT) != UART_OK)
+        return XMODEM_TIMEOUT_ERROR;
+    if (UART_ReceiveByte(&pkt_no_inv, XMODEM_BYTE_TIMEOUT) != UART_OK)
+        return XMODEM_TIMEOUT_ERROR;
+
+    if ((pkt_no ^ pkt_no_inv) != 0xFF)
+        return XMODEM_PACKET_NUM_ERROR;
+
+    /* Data */
+    if (UART_ReceiveBuffer(xmodem_data_buf, *packet_size, XMODEM_BYTE_TIMEOUT) != UART_OK)
+        return XMODEM_TIMEOUT_ERROR;
+
+    /* CRC */
+    if (UART_ReceiveBuffer(crc_buf, 2, XMODEM_BYTE_TIMEOUT) != UART_OK)
+        return XMODEM_TIMEOUT_ERROR;
+
+    uint16_t recv_crc = (crc_buf[0] << 8) | crc_buf[1];
+    uint16_t calc_crc = XMODEM_CalcCRC16(xmodem_data_buf, *packet_size);
+
+    if (recv_crc != calc_crc)
+        return XMODEM_CRC_ERROR;
+
+    *packet_no = pkt_no;
+    return XMODEM_OK;
+}
+
+/* ================= XMODEM RECEIVE ENGINE ================= */
+XMODEM_Status_t XMODEM_Receive(uint32_t flash_start_addr)
+{
+    uint8_t expected_packet = 1;
+    uint32_t flash_addr = flash_start_addr;
+    uint8_t packet_no;
+    uint16_t packet_size;
+    XMODEM_Status_t status;
+
+    // Send 'C' to request CRC mode from Tera Term
+    UART_SendByte(CRC_REQ);
+
+    // Erase application flash
+    if (Flash_Erase(flash_start_addr) != FLASH_OK)
+        return XMODEM_UART_ERROR;
+
+    while (1)
+    {
+        status = XMODEM_ReceivePacket(&packet_no, &packet_size);
+
+        if (status == XMODEM_OK)
+        {
+            if (packet_no == expected_packet)
+            {
+                // Write packet to flash
+                if (Flash_Write(flash_addr, xmodem_data_buf, packet_size) != FLASH_OK)
+                {
+                    UART_SendByte(NAK);
+                    return XMODEM_UART_ERROR;
+                }
+
+                flash_addr += packet_size;
+                expected_packet++;
+
+                // Debug print
+                char msg[50];
+                sprintf(msg, "Packet %d received, %d bytes\n\r", packet_no, packet_size);
+                UART_SendString((uint8_t*)msg);
+            }
+            else
+            {
+                UART_SendByte(NAK); // wrong packet number
+                continue;
+            }
+
+            UART_SendByte(ACK); // acknowledge
+        }
+        else if (status == XMODEM_EOT_RECEIVED)
+        {
+            UART_SendByte(ACK); // acknowledge EOT
+            UART_SendString((uint8_t*)"XMODEM Transfer Completed!\n\r");
+            break;
+        }
+        else if (status == XMODEM_CRC_ERROR)
+        {
+            UART_SendByte(NAK); // ask for retransmit
+        }
+        else
+        {
+            UART_SendByte(NAK); // timeout, UART error, packet num error
+        }
+    }
+
+    return XMODEM_OK;
+}
+

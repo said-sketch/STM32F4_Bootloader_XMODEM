@@ -1,0 +1,64 @@
+/*
+ * uart_if.c
+ *
+ *  Created on: Feb 9, 2026
+ *      Author: HP
+ */
+
+#include "uart_if.h"
+
+/* ================= EXTERNAL UART HANDLE ================= */
+static UART_HandleTypeDef *UART_Handler = NULL;
+
+/* ================= INITIALIZE UART ================= */
+UART_Status_t UART_Init(UART_HandleTypeDef *huart)
+{
+    if (!huart) return UART_ERROR;
+    UART_Handler = huart;
+    return UART_OK;
+}
+
+/* ================= SEND SINGLE BYTE ================= */
+UART_Status_t UART_SendByte(uint8_t byte)
+{
+    if (!UART_Handler) return UART_ERROR;
+
+    if (HAL_UART_Transmit(UART_Handler, &byte, 1, HAL_MAX_DELAY) == HAL_OK)
+        return UART_OK;
+
+    return UART_ERROR;
+}
+
+/* ================= SEND BUFFER ================= */
+UART_Status_t UART_SendBuffer(uint8_t *buf, uint16_t len)
+{
+    if (!UART_Handler || !buf) return UART_ERROR;
+
+    if (HAL_UART_Transmit(UART_Handler, buf, len, HAL_MAX_DELAY) == HAL_OK)
+        return UART_OK;
+
+    return UART_ERROR;
+}
+
+/* ================= RECEIVE SINGLE BYTE WITH TIMEOUT ================= */
+UART_Status_t UART_ReceiveByte(uint8_t *byte, uint32_t timeout)
+{
+    if (!UART_Handler || !byte) return UART_ERROR;
+
+    if (HAL_UART_Receive(UART_Handler, byte, 1, timeout) == HAL_OK)
+        return UART_OK;
+    else
+        return UART_TIMEOUT;
+}
+
+/* ================= RECEIVE BUFFER WITH TIMEOUT ================= */
+UART_Status_t UART_ReceiveBuffer(uint8_t *buf, uint16_t len, uint32_t timeout)
+{
+    if (!UART_Handler || !buf) return UART_ERROR;
+
+    if (HAL_UART_Receive(UART_Handler, buf, len, timeout) == HAL_OK)
+        return UART_OK;
+    else
+        return UART_TIMEOUT;
+}
+

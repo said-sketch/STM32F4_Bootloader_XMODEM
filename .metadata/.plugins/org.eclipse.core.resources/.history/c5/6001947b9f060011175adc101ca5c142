@@ -1,0 +1,107 @@
+/*
+ * xmodem.c
+ *
+ *  Created on: Feb 9, 2026
+ *      Author: HP
+ */
+
+
+#include "xmodem.h"
+#include "uart_if.h"
+#include "flash_if.h"
+
+/* ================= LOCAL BUFFER ================= */
+
+static uint8_t xmodem_data_buf[XMODEM_PACKET_1K];
+
+/* ================= CRC16 (XMODEM STANDARD) ================= */
+static uint16_t XMODEM_CalcCRC16(const uint8_t *data, uint16_t length)
+{
+    uint16_t crc = 0x0000;
+    for (uint16_t i = 0; i < length; i++)
+    {
+        crc ^= (uint16_t)data[i] << 8;
+        for (uint8_t j = 0; j < 8; j++)
+            crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : crc << 1;
+    }
+    return crc;
+}
+
+
+/* ================= RECEIVE ONE XMODEM PACKET ================= */
+static XMODEM_Status_t XMODEM_ReceivePacket(uint8_t *packet_no, uint16_t *packet_size)
+{
+    uint8_t header, pkt_no, pkt_no_inv;
+    uint8_t crc_buf[2];
+
+    if (UART_ReceiveByte(&header, XMODEM_BYTE_TIMEOUT) != UART_OK)
+        return XMODEM_TIMEOUT_ERROR;
+
+    if (header == EOT) return XMODEM_EOT_RECEIVED;
+
+    if (header == SOH) *packet_size = XMODEM_PACKET_128;
+    else if (header == STX) *packet_size = XMODEM_PACKET_1K;
+    else return XMODEM_UART_ERROR;
+
+    if (UART_ReceiveByte(&pkt_no, XMODEM_BYTE_TIMEOUT) != UART_OK) return XMODEM_TIMEOUT_ERROR;
+    if (UART_ReceiveByte(&pkt_no_inv, XMODEM_BYTE_TIMEOUT) != UART_OK) return XMODEM_TIMEOUT_ERROR;
+    if ((pkt_no ^ pkt_no_inv) != 0xFF) return XMODEM_PACKET_NUM_ERROR;
+
+    if (UART_ReceiveBuffer(xmodem_data_buf, *packet_size, XMODEM_BYTE_TIMEOUT) != UART_OK)
+        return XMODEM_TIMEOUT_ERROR;
+
+    if (UART_ReceiveBuffer(crc_buf, 2, XMODEM_BYTE_TIMEOUT) != UART_OK)
+        return XMODEM_TIMEOUT_ERROR;
+
+    uint16_t recv_crc = (crc_buf[0] << 8) | crc_buf[1];
+    if (recv_crc != XMODEM_CalcCRC16(xmodem_data_buf, *packet_size))
+        return XMODEM_CRC_ERROR;
+
+    *packet_no = pkt_no;
+    return XMODEM_OK;
+}
+
+
+/* ================= XMODEM RECEIVE ENGINE ================= */
+XMODEM_Status_t XMODEM_Receive(uint32_t flash_start_addr)
+{
+    uint8_t expected_packet = 1;
+    uint32_t flash_addr = flash_start_addr;
+    uint8_t packet_no;
+    uint16_t packet_size;
+    XMODEM_Status_t status;
+
+    // request CRC mode
+    UART_SendByte(CRC_REQ);
+
+    if (Flash_Erase(flash_start_addr) != FLASH_OK)
+        return XMODEM_UART_ERROR;
+
+    while (1)
+    {
+        status = XMODEM_ReceivePacket(&packet_no, &packet_size);
+
+        if (status == XMODEM_OK)
+        {
+            if (packet_no == expected_packet)
+            {
+                Flash_Write(flash_addr, xmodem_data_buf, packet_size);
+                flash_addr += packet_size;
+                expected_packet++;
+            }
+            UART_SendByte(ACK);
+        }
+        else if (status == XMODEM_EOT_RECEIVED)
+        {
+            UART_SendByte(ACK);
+            break;
+        }
+        else
+        {
+            UART_SendByte(NACK);
+        }
+    }
+    return XMODEM_OK;
+}
+
+
